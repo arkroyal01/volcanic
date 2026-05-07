@@ -116,6 +116,18 @@ public:
         return m_currentCommandBuffer;
     }
 
+    /**
+     * Snapshot / restore the streaming-buffer write position.
+     *
+     * Offscreen effects call effects->drawWindow() which flows through renderNodes()
+     * and advances m_vertexBufferOffset into the shared streaming buffer. Because
+     * endSingleTimeCommands() blocks (vkQueueWaitIdle) before returning, the GPU has
+     * finished using that buffer region, so the offset can be safely restored and the
+     * main frame can reuse it without a hazard.
+     */
+    size_t vertexBufferOffset() const { return m_vertexBufferOffset; }
+    void setVertexBufferOffset(size_t offset) { m_vertexBufferOffset = offset; }
+
 private:
     QVector4D modulate(float opacity, float brightness) const;
     void createRenderNode(Item *item, RenderContext *context);

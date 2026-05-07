@@ -14,6 +14,7 @@
 #include "opengl/gltexture.h"
 #include "opengl/glutils.h"
 #include "opengl/openglcontext.h"
+#include "backends/x11/standalone/x11_standalone_vulkan_backend.h"
 #include "platformsupport/scenes/vulkan/vulkanbuffer.h"
 #include "platformsupport/scenes/vulkan/vulkancontext.h"
 #include "platformsupport/scenes/vulkan/vulkanframebuffer.h"
@@ -263,8 +264,11 @@ void VulkanOffscreenData::maybeRender(EffectWindow *window)
 
     // Create or resize offscreen framebuffer
     if (!m_vulkanFbo || m_vulkanFbo->size() != textureSize) {
-        // Use the same format as the swapchain (VK_FORMAT_B8G8R8A8_SRGB) for pipeline compatibility
-        const VkFormat offscreenFormat = VK_FORMAT_B8G8R8A8_SRGB;
+        // Match the swapchain's actual format so pipelines (compiled against the swapchain
+        // render pass) remain Vulkan-compatible with this offscreen render pass.
+        // Hardcoding SRGB breaks on drivers that select UNORM (NVIDIA, lavapipe).
+        auto *x11Backend = static_cast<X11StandaloneVulkanBackend *>(m_vulkanContext->backend());
+        const VkFormat offscreenFormat = x11Backend->swapchain()->format();
 
         // Create render pass for offscreen rendering
         m_vulkanRenderPass = VulkanRenderPass::createForOffscreen(m_vulkanContext, offscreenFormat, false);
@@ -332,12 +336,15 @@ void VulkanOffscreenData::maybeRender(EffectWindow *window)
         m_vulkanRenderPass->begin(cmd, m_vulkanFbo->framebuffer(), renderArea, &clearValue, 1);
         qDebug() << "VulkanOffscreenData::maybeRender: began render pass";
 
-        // Set viewport and scissor for the offscreen framebuffer
+        // Set viewport and scissor for the offscreen framebuffer.
+        // Use the same negative-height Y-flip convention as ItemRendererVulkan::beginFrame()
+        // so the projection matrices (which assume Y=0 at top) produce correctly-oriented
+        // content in the texture.  VK_KHR_maintenance1 / Vulkan 1.1 is already required.
         VkViewport vkViewport{};
         vkViewport.x = 0.0f;
-        vkViewport.y = 0.0f;
+        vkViewport.y = static_cast<float>(textureSize.height());
         vkViewport.width = static_cast<float>(textureSize.width());
-        vkViewport.height = static_cast<float>(textureSize.height());
+        vkViewport.height = -static_cast<float>(textureSize.height());
         vkViewport.minDepth = 0.0f;
         vkViewport.maxDepth = 1.0f;
         vkCmdSetViewport(cmd, 0, 1, &vkViewport);
@@ -351,11 +358,24 @@ void VulkanOffscreenData::maybeRender(EffectWindow *window)
         data.setOpacity(1.0);
 
         const int mask = Effect::PAINT_WINDOW_TRANSFORMED | Effect::PAINT_WINDOW_TRANSLUCENT;
-        qDebug() << "VulkanOffscreenData::maybeRender: calling effects->drawWindow for window=" << window->caption();
-        qDebug() << "VulkanOffscreenData::maybeRender: renderTarget.vulkanTarget()=" << renderTarget.vulkanTarget()
-                 << "commandBuffer=" << (renderTarget.vulkanTarget() ? renderTarget.vulkanTarget()->commandBuffer() : VK_NULL_HANDLE);
+
+        // Snapshot the main renderer's streaming-buffer write position before the draw.
+        // effects->drawWindow() flows through ItemRendererVulkan::renderNodes(), which
+        // advances m_vertexBufferOffset in the shared streaming buffer.  Because
+        // endSingleTimeCommands() (below) calls vkQueueWaitIdle, the GPU finishes using
+        // that buffer region before we return, so restoring the offset is safe and lets
+        // the main frame reuse the same region without overflow.
+        auto *mainScene = dynamic_cast<WorkspaceSceneVulkan *>(Compositor::self()->scene());
+        auto *mainRenderer = mainScene
+            ? static_cast<ItemRendererVulkan *>(mainScene->renderer())
+            : nullptr;
+        const size_t savedVertexOffset = mainRenderer ? mainRenderer->vertexBufferOffset() : 0;
+
         effects->drawWindow(renderTarget, viewport, window, mask, infiniteRegion(), data);
-        qDebug() << "VulkanOffscreenData::maybeRender: effects->drawWindow returned";
+
+        if (mainRenderer) {
+            mainRenderer->setVertexBufferOffset(savedVertexOffset);
+        }
 
         // End render pass
         m_vulkanRenderPass->end(cmd);
@@ -1035,7 +1055,9 @@ void CrossFadeEffect::redirect(EffectWindow *window)
     const QVariant contrastRole = window->data(WindowForceBackgroundContrastRole);
     window->setData(WindowForceBackgroundContrastRole, QVariant());
 
-    effects->makeOpenGLContextCurrent();
+    if (effects->isOpenGLCompositing()) {
+        effects->makeOpenGLContextCurrent();
+    }
     offscreenData->maybeRender(window);
     offscreenData->frameGeometryAtCapture = window->frameGeometry();
 
@@ -1050,8 +1072,10 @@ void CrossFadeEffect::unredirect(EffectWindow *window)
         return;
     }
 
-    if (!OpenGlContext::currentContext()) {
-        effects->openglContext()->makeCurrent();
+    if (effects->isOpenGLCompositing()) {
+        if (!OpenGlContext::currentContext()) {
+            effects->openglContext()->makeCurrent();
+        }
     }
 
     d->windows.erase(it);
