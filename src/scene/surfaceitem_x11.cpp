@@ -7,8 +7,11 @@
 #include "scene/surfaceitem_x11.h"
 #include "compositor_x11.h"
 #include "core/renderbackend.h"
+#include "main.h"
 #include "x11syncmanager.h"
 #include "x11window.h"
+
+#include <xcb/composite.h>
 
 namespace KWin
 {
@@ -59,11 +62,19 @@ void SurfaceItemX11::preprocess()
     }
     SurfaceItem::preprocess();
 
-    // If pixmap creation failed (BadMatch during --replace: window not yet redirected,
-    // or "not viewable" race on map), the damage event was already consumed so no retry
-    // will be triggered naturally. Schedule another frame so updatePixmap() retries.
+    // If pixmap creation failed (BadMatch: window not yet redirected during --replace, or
+    // not-viewable race on map), the damage event was already consumed so no retry will be
+    // triggered naturally. Schedule another frame so updatePixmap() retries.
+    // Every 10 frames we also re-assert xcb_composite_redirect_subwindows in case the
+    // initial call at compositor start silently failed while the outgoing compositor was
+    // still active; by the time several retries have passed it should be safe to redirect.
     if (!pixmap()) {
         if (m_pixmapRetries < MaxPixmapRetries) {
+            if (m_pixmapRetries % 10 == 0) {
+                xcb_composite_redirect_subwindows(kwinApp()->x11Connection(),
+                                                  kwinApp()->x11RootWindow(),
+                                                  XCB_COMPOSITE_REDIRECT_MANUAL);
+            }
             ++m_pixmapRetries;
             scheduleRepaint(boundingRect());
         }

@@ -396,6 +396,17 @@ void X11Compositor::start()
         m_releaseSelectionTimer.stop();
     }
 
+    // Re-assert composite redirect. During --replace the initial redirect call at the top
+    // of this function silently failed with BadAccess because the outgoing compositor was
+    // still alive and holding the redirect. By now all initialization has run (several event
+    // loop iterations worth of work), giving the outgoing compositor time to process its
+    // SelectionClear, call xcb_composite_unredirect_subwindows, and release the lock.
+    // This second call succeeds in that scenario and is a cheap no-op otherwise.
+    xcb_composite_redirect_subwindows(kwinApp()->x11Connection(),
+                                      kwinApp()->x11RootWindow(),
+                                      XCB_COMPOSITE_REDIRECT_MANUAL);
+    xcb_flush(kwinApp()->x11Connection());
+
     Q_EMIT compositingToggled(true);
 }
 
