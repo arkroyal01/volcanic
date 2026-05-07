@@ -53,6 +53,10 @@ private:
     xcb_xfixes_fetch_region_cookie_t m_damageCookie;
     bool m_isDamaged = false;
     bool m_havePendingDamageRegion = false;
+    // How many consecutive frames we have retried pixmap creation after a failure.
+    // Capped to avoid spinning forever when a window is genuinely unrenderable.
+    int m_pixmapRetries = 0;
+    static constexpr int MaxPixmapRetries = 30;
 };
 
 class KWIN_EXPORT SurfacePixmapX11 final : public SurfacePixmap

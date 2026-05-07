@@ -58,6 +58,18 @@ void SurfaceItemX11::preprocess()
         }
     }
     SurfaceItem::preprocess();
+
+    // If pixmap creation failed (BadMatch during --replace: window not yet redirected,
+    // or "not viewable" race on map), the damage event was already consumed so no retry
+    // will be triggered naturally. Schedule another frame so updatePixmap() retries.
+    if (!pixmap()) {
+        if (m_pixmapRetries < MaxPixmapRetries) {
+            ++m_pixmapRetries;
+            scheduleRepaint(boundingRect());
+        }
+    } else {
+        m_pixmapRetries = 0;
+    }
 }
 
 void SurfaceItemX11::processDamage()
@@ -142,6 +154,7 @@ void SurfaceItemX11::destroyDamage()
 
 void SurfaceItemX11::handleBufferGeometryChanged()
 {
+    m_pixmapRetries = 0;
     setDestinationSize(m_window->bufferGeometry().size());
     setBufferSourceBox(QRectF(QPointF(0, 0), m_window->bufferGeometry().size()));
     setBufferSize(m_window->bufferGeometry().size().toSize());
