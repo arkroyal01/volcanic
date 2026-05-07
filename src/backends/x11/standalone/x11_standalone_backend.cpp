@@ -381,23 +381,23 @@ void X11StandaloneBackend::doUpdateOutputs()
                     }
 
                     X11Output::Information information{
-                        .capabilities = Output::Capabilities(),
-                        .edid = Edid(),
-                        .eisaId = QString(),
-                        .internal = false,
                         .name = outputInfo.name(),
-                        .nonDesktop = false,
                         .manufacturer = QString(),
-                        .maxAverageBrightness = std::nullopt,
-                        .maxPeakBrightness = std::nullopt,
-                        .minBrightness = 0,
                         .model = QString(),
-                        .mstPath = QByteArray(),
-                        .panelOrientation = OutputTransform::Normal,
-                        .physicalSize = physicalSize,
-                        .placeholder = false,
                         .serialNumber = QString(),
+                        .eisaId = QString(),
+                        .physicalSize = physicalSize,
+                        .edid = Edid(),
                         .subPixel = Output::SubPixel::Unknown,
+                        .capabilities = Output::Capabilities(),
+                        .panelOrientation = OutputTransform::Normal,
+                        .internal = false,
+                        .placeholder = false,
+                        .nonDesktop = false,
+                        .mstPath = QByteArray(),
+                        .maxPeakBrightness = std::nullopt,
+                        .maxAverageBrightness = std::nullopt,
+                        .minBrightness = 0,
                     };
 
                     auto edidProperty = Xcb::RandR::OutputProperty(xcbOutput, atoms->edid, XCB_ATOM_INTEGER, 0, 100, false, false);
