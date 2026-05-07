@@ -236,10 +236,8 @@ xcb_visualid_t SurfacePixmapX11::visual() const
 
 void SurfacePixmapX11::create()
 {
-    qWarning() << "SurfacePixmapX11::create() called";
     const X11Window *window = static_cast<SurfaceItemX11 *>(m_item)->window();
     if (window->isDeleted()) {
-        qWarning() << "SurfacePixmapX11::create() - window is deleted";
         return;
     }
 
@@ -279,7 +277,6 @@ void SurfacePixmapX11::create()
     // this class is only used on X11 where the logical size and
     // device pixel size is guaranteed to be the same and we can convert safely
     m_size = bufferGeometry.size().toSize();
-    qWarning() << "SurfacePixmapX11::create() - SUCCESS, pixmap:" << m_pixmap << "size:" << m_size;
 }
 
 } // namespace KWin
