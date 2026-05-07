@@ -159,30 +159,8 @@ QList<QRectF> SurfaceItemX11::shape() const
     QList<QRectF> shape = m_window->shapeRegion();
     QList<QRectF> shapeRegion;
 
-    // Debug logging for small windows (panels)
-    static int shapeDebugCount = 0;
-    bool shouldLog = m_window->bufferGeometry().height() < 100 && shapeDebugCount < 10;
-    if (shouldLog) {
-        qWarning() << "SurfaceItemX11::shape() DEBUG:"
-                   << "bufferGeom=" << m_window->bufferGeometry()
-                   << "clientGeom=" << m_window->clientGeometry()
-                   << "clipRect=" << clipRect
-                   << "shapeRegionCount=" << shape.size();
-        for (int i = 0; i < shape.size() && i < 5; i++) {
-            qWarning() << "  shapeIn[" << i << "]=" << shape[i];
-        }
-    }
-
-    // bounded to clipRect
     for (QRectF &shapePart : shape) {
         shapeRegion += shapePart.intersected(clipRect);
-    }
-
-    if (shouldLog) {
-        for (int i = 0; i < shapeRegion.size() && i < 5; i++) {
-            qWarning() << "  shapeOut[" << i << "]=" << shapeRegion[i];
-        }
-        shapeDebugCount++;
     }
 
     return shapeRegion;
