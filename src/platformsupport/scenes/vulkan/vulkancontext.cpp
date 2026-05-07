@@ -20,6 +20,7 @@
 
 #include <QDebug>
 #include <drm_fourcc.h>
+#include <unistd.h>
 
 namespace KWin
 {
