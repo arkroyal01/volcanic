@@ -617,10 +617,6 @@ bool Shm::init()
 
 uint32_t toXNative(qreal value)
 {
-    // debug helper, check for things getting mangled
-    if (!qFuzzyIsNull(std::fmod(kwinApp()->xScale() * value, 1))) {
-        qDebug() << "precision lost! floating value sent to X" << kwinApp()->xScale() * value;
-    }
     return static_cast<int32_t>(std::round(kwinApp()->xScale() * value));
 }
 
