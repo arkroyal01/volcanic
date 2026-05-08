@@ -14,7 +14,6 @@
 #include "opengl/gltexture.h"
 #include "opengl/glutils.h"
 #include "opengl/openglcontext.h"
-#include "backends/x11/standalone/x11_standalone_vulkan_backend.h"
 #include "platformsupport/scenes/vulkan/vulkanbuffer.h"
 #include "platformsupport/scenes/vulkan/vulkancontext.h"
 #include "platformsupport/scenes/vulkan/vulkanframebuffer.h"
@@ -22,10 +21,8 @@
 #include "platformsupport/scenes/vulkan/vulkanpipelinemanager.h"
 #include "platformsupport/scenes/vulkan/vulkanrenderpass.h"
 #include "platformsupport/scenes/vulkan/vulkanrendertarget.h"
-#include "platformsupport/scenes/vulkan/vulkansurfacetexture.h"
 #include "platformsupport/scenes/vulkan/vulkantexture.h"
 #include "scene/itemrenderer_vulkan.h"
-#include "scene/surfaceitem.h"
 #include "scene/windowitem.h"
 #include "scene/workspacescene_vulkan.h"
 
@@ -259,16 +256,12 @@ void VulkanOffscreenData::maybeRender(EffectWindow *window)
     const qreal scale = window->screen()->scale();
     const QSize textureSize = (logicalGeometry.size() * scale).toSize();
 
-    qDebug() << "VulkanOffscreenData::maybeRender: window=" << window->caption() << "textureSize=" << textureSize << "m_isDirty=" << m_isDirty;
-    qDebug() << "VulkanOffscreenData::maybeRender: using render pass for offscreen rendering";
-
     // Create or resize offscreen framebuffer
     if (!m_vulkanFbo || m_vulkanFbo->size() != textureSize) {
         // Match the swapchain's actual format so pipelines (compiled against the swapchain
         // render pass) remain Vulkan-compatible with this offscreen render pass.
         // Hardcoding SRGB breaks on drivers that select UNORM (NVIDIA, lavapipe).
-        auto *x11Backend = static_cast<X11StandaloneVulkanBackend *>(m_vulkanContext->backend());
-        const VkFormat offscreenFormat = x11Backend->swapchain()->format();
+        const VkFormat offscreenFormat = m_vulkanContext->backend()->colorFormat();
 
         // Create render pass for offscreen rendering
         m_vulkanRenderPass = VulkanRenderPass::createForOffscreen(m_vulkanContext, offscreenFormat, false);
@@ -286,35 +279,12 @@ void VulkanOffscreenData::maybeRender(EffectWindow *window)
     }
 
     if (m_isDirty) {
-        qDebug() << "VulkanOffscreenData::maybeRender: ACTUALLY RENDERING offscreen for window=" << window->caption() << "framebuffer size=" << m_vulkanFbo->size();
-
-        // Log the window's surface texture plane count
-        if (window->windowItem() && window->windowItem()->surfaceItem()) {
-            SurfaceItem *surfaceItem = window->windowItem()->surfaceItem();
-            SurfacePixmap *pixmap = surfaceItem->pixmap();
-            if (pixmap && pixmap->texture()) {
-                VulkanSurfaceTexture *vulkanSurfaceTexture = dynamic_cast<VulkanSurfaceTexture *>(pixmap->texture());
-                if (vulkanSurfaceTexture) {
-                    VulkanSurfaceContents contents = vulkanSurfaceTexture->texture();
-                    qWarning() << "OFFSCREEN: Window surface texture has" << contents.planes.size() << "planes";
-                    for (int i = 0; i < contents.planes.size(); ++i) {
-                        if (contents.planes[i]) {
-                            qWarning() << "  Plane" << i << "size=" << contents.planes[i]->size()
-                                       << "layout=" << contents.planes[i]->currentLayout()
-                                       << "imageView=" << contents.planes[i]->imageView();
-                        }
-                    }
-                }
-            }
-        }
-
         // Use single-time commands for offscreen rendering
         VkCommandBuffer cmd = m_vulkanContext->beginSingleTimeCommands();
         if (cmd == VK_NULL_HANDLE) {
             qWarning() << "VulkanOffscreenData::maybeRender: Failed to begin single-time commands";
             return;
         }
-        qDebug() << "VulkanOffscreenData::maybeRender: began single-time commands, cmd=" << cmd;
 
         // Create Vulkan render target from our framebuffer
         std::unique_ptr<VulkanRenderTarget> vulkanRenderTarget = std::make_unique<VulkanRenderTarget>(m_vulkanFbo.get());
@@ -334,7 +304,6 @@ void VulkanOffscreenData::maybeRender(EffectWindow *window)
         renderArea.offset = {0, 0};
         renderArea.extent = {(uint32_t)textureSize.width(), (uint32_t)textureSize.height()};
         m_vulkanRenderPass->begin(cmd, m_vulkanFbo->framebuffer(), renderArea, &clearValue, 1);
-        qDebug() << "VulkanOffscreenData::maybeRender: began render pass";
 
         // Set viewport and scissor for the offscreen framebuffer.
         // Use the same negative-height Y-flip convention as ItemRendererVulkan::beginFrame()
@@ -379,7 +348,6 @@ void VulkanOffscreenData::maybeRender(EffectWindow *window)
 
         // End render pass
         m_vulkanRenderPass->end(cmd);
-        qDebug() << "VulkanOffscreenData::maybeRender: ended render pass";
 
         // Update the texture's tracked layout - the render pass's finalLayout
         // transitions it to SHADER_READ_ONLY_OPTIMAL on the GPU side, but we need
@@ -391,7 +359,6 @@ void VulkanOffscreenData::maybeRender(EffectWindow *window)
 
         // Submit and wait
         m_vulkanContext->endSingleTimeCommands(cmd);
-        qDebug() << "VulkanOffscreenData::maybeRender: submitted and waited";
 
         m_isDirty = false;
     }
@@ -422,7 +389,6 @@ void VulkanOffscreenData::setVertexSnappingMode(RenderGeometry::VertexSnappingMo
 
 void VulkanOffscreenData::setShader(VulkanPipeline *pipeline)
 {
-    qDebug() << "VulkanOffscreenData::setShader: setting pipeline=" << pipeline << "traits=" << (pipeline ? static_cast<int>(pipeline->traits()) : -1);
     m_pipeline = pipeline;
 }
 
@@ -470,8 +436,6 @@ void VulkanOffscreenData::paint(const RenderTarget &renderTarget, const RenderVi
     // Get a basic textured pipeline
     // Use traits similar to the GL version's default shader
     VulkanPipeline *pipeline = m_pipeline ? m_pipeline : pipelineManager->pipeline(VulkanShaderTrait::MapTexture | VulkanShaderTrait::Modulate | VulkanShaderTrait::AdjustSaturation | VulkanShaderTrait::TransformColorspace);
-    qDebug() << "VulkanOffscreenData::paint: m_pipeline=" << m_pipeline << "using pipeline with traits:" << (pipeline ? static_cast<int>(pipeline->traits()) : -1);
-    qDebug() << "VulkanOffscreenData::paint: texture size=" << renderTexture->size() << "coordinate type=Normalized";
     if (!pipeline || !pipeline->isValid()) {
         qWarning() << "VulkanOffscreenData::paint: Failed to get valid pipeline";
         return;
@@ -482,30 +446,11 @@ void VulkanOffscreenData::paint(const RenderTarget &renderTarget, const RenderVi
     if (!targetFbo) {
         return;
     }
-    qDebug() << "VulkanOffscreenData::paint: drawing with pipeline to target framebuffer size=" << targetFbo->size();
-
     // Bind the pipeline
     pipeline->bind(cmd);
 
     // Set up vertex buffer with quad geometry
     const double scale = viewport.scale();
-
-    // Debug: print quad information
-    qDebug() << "=== VulkanOffscreenData::paint DEBUG ===";
-    qDebug() << "window->x()=" << window->x() << "window->y()=" << window->y();
-    qDebug() << "window->width()=" << window->width() << "window->height()=" << window->height();
-    qDebug() << "window->frameGeometry()=" << window->frameGeometry();
-    qDebug() << "window->expandedGeometry()=" << window->expandedGeometry();
-    qDebug() << "scale=" << scale;
-    qDebug() << "quads.size=" << quads.size();
-    for (int i = 0; i < quads.size(); i++) {
-        const auto &quad = quads[i];
-        qDebug() << "quad" << i << ":";
-        qDebug() << "  [0] pos=(" << quad[0].x() << "," << quad[0].y() << ") tex=(" << quad[0].u() << "," << quad[0].v() << ")";
-        qDebug() << "  [1] pos=(" << quad[1].x() << "," << quad[1].y() << ") tex=(" << quad[1].u() << "," << quad[1].v() << ")";
-        qDebug() << "  [2] pos=(" << quad[2].x() << "," << quad[2].y() << ") tex=(" << quad[2].u() << "," << quad[2].v() << ")";
-        qDebug() << "  [3] pos=(" << quad[3].x() << "," << quad[3].y() << ") tex=(" << quad[3].u() << "," << quad[3].v() << ")";
-    }
 
     // Use RenderGeometry to generate vertices from quads
     RenderGeometry geometry;
@@ -518,12 +463,6 @@ void VulkanOffscreenData::paint(const RenderTarget &renderTarget, const RenderVi
 
     const size_t vertexCount = geometry.size();
     const size_t bufferSize = vertexCount * sizeof(VulkanVertex2D);
-
-    qDebug() << "VulkanOffscreenData::paint: vertexCount=" << vertexCount << "bufferSize=" << bufferSize;
-    qDebug() << "VulkanOffscreenData::paint: using texture matrix with Normalized coordinates";
-    qDebug() << "renderTexture->size()=" << renderTexture->size();
-    qDebug() << "renderTexture->matrix=\n"
-             << renderTexture->matrix(VulkanCoordinateType::Normalized);
 
     // Create or resize vertex buffer if needed
     if (!m_vertexBuffer || m_vertexBuffer->size() < bufferSize) {
@@ -545,10 +484,7 @@ void VulkanOffscreenData::paint(const RenderTarget &renderTarget, const RenderVi
     // Vertices are in window-local coordinates; the MVP matrix handles the window transform
     std::vector<GLVertex2D> glVertices(vertexCount);
     geometry.copy(glVertices);
-    qDebug() << "=== Vertex positions after RenderGeometry ===";
     for (size_t i = 0; i < vertexCount; i++) {
-        qDebug() << "  vertex" << i << "pos=(" << glVertices[i].position.x() << "," << glVertices[i].position.y()
-                 << ") tex=(" << glVertices[i].texcoord.x() << "," << glVertices[i].texcoord.y() << ")";
         (*mapped)[i] = {QVector2D(glVertices[i].position.x(), glVertices[i].position.y()),
                         QVector2D(glVertices[i].texcoord.x(), glVertices[i].texcoord.y())};
     }
@@ -576,12 +512,6 @@ void VulkanOffscreenData::paint(const RenderTarget &renderTarget, const RenderVi
     for (int i = 1; i < 4; i++) {
         imageInfos[i] = imageInfos[0]; // Reuse the same texture for all slots
     }
-
-    // Log the offscreen texture details
-    qWarning() << "VULKAN OFFSCREEN: Binding offscreen texture size=" << renderTexture->size()
-               << "layout=" << renderTexture->currentLayout()
-               << "imageView=" << renderTexture->imageView()
-               << "sampler=" << renderTexture->sampler();
 
     // Create or resize uniform buffer if needed
     const size_t uniformSize = sizeof(VulkanUniforms);
@@ -701,42 +631,14 @@ void VulkanOffscreenData::paint(const RenderTarget &renderTarget, const RenderVi
         clipScissor.offset = {clipBounds.x(), clipBounds.y()};
         clipScissor.extent = {static_cast<uint32_t>(clipBounds.width()), static_cast<uint32_t>(clipBounds.height())};
         vkCmdSetScissor(cmd, 0, 1, &clipScissor);
-        qDebug() << "VulkanOffscreenData::paint: clipping enabled, scissor=" << clipBounds;
     }
 
     // Set push constants for MVP matrix
     // Use the viewport's projection matrix to match the renderer's coordinate system
     // This matches the OpenGL implementation in GLOffscreenData::paint()
     QMatrix4x4 mvp = viewport.projectionMatrix();
-    qDebug() << "=== MVP Matrix Calculation ===";
-    qDebug() << "Initial projection matrix:\n"
-             << mvp;
-    qDebug() << "window->x()=" << window->x() << "window->y()=" << window->y() << "scale=" << viewport.scale();
-    qDebug() << "Translation: (" << std::round(window->x() * viewport.scale()) << "," << std::round(window->y() * viewport.scale()) << ")";
-
     mvp.translate(std::round(window->x() * viewport.scale()), std::round(window->y() * viewport.scale()));
-    qDebug() << "After window translation:\n"
-             << mvp;
-
-    qDebug() << "data.toMatrix():\n"
-             << data.toMatrix(viewport.scale());
     mvp = mvp * data.toMatrix(viewport.scale());
-    qDebug() << "Final MVP matrix:\n"
-             << mvp;
-
-    // Calculate expected NDC for top-left vertex (0, 0)
-    qDebug() << "=== Expected NDC coordinates ===";
-    qDebug() << "For vertex at (0, 0):";
-    float x_ndc = mvp(0, 0) * 0 + mvp(0, 3);
-    float y_ndc = mvp(1, 0) * 0 + mvp(1, 3);
-    qDebug() << "  NDC: (" << x_ndc << "," << y_ndc << ")";
-    qDebug() << "  Screen: (" << (x_ndc + 1) / 2 * targetSize.width() << "," << (1 - y_ndc) / 2 * targetSize.height() << ")";
-
-    qDebug() << "For vertex at (width, height) = (" << window->width() << "," << window->height() << "):";
-    x_ndc = mvp(0, 0) * window->width() + mvp(0, 3);
-    y_ndc = mvp(1, 1) * window->height() + mvp(1, 3);
-    qDebug() << "  NDC: (" << x_ndc << "," << y_ndc << ")";
-    qDebug() << "  Screen: (" << (x_ndc + 1) / 2 * targetSize.width() << "," << (1 - y_ndc) / 2 * targetSize.height() << ")";
 
     VulkanPushConstants pc;
     memcpy(pc.mvp, mvp.data(), sizeof(pc.mvp));
@@ -751,17 +653,12 @@ void VulkanOffscreenData::paint(const RenderTarget &renderTarget, const RenderVi
                        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
                        0, sizeof(VulkanPushConstants), &pc);
 
-    qDebug() << "VulkanOffscreenData::paint: drawing" << vertexCount << "vertices with pipeline traits=" << static_cast<int>(pipeline->traits())
-             << "mvp=" << mvp;
-
     // Draw the geometry
     vkCmdDraw(cmd, vertexCount, 1, 0, 0);
-    qDebug() << "VulkanOffscreenData::paint: draw call submitted";
 
     // Restore scissor to full framebuffer (equivalent to glDisable(GL_SCISSOR_TEST) in OpenGL)
     if (clipping) {
         vkCmdSetScissor(cmd, 0, 1, &savedScissor);
-        qDebug() << "VulkanOffscreenData::paint: restored scissor to full framebuffer";
     }
 }
 
