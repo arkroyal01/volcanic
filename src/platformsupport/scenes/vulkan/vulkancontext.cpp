@@ -175,7 +175,7 @@ bool VulkanContext::createDescriptorPool()
         return false;
     }
 
-    qCWarning(KWIN_VULKAN) << "Created descriptor pool with maxSets=" << poolInfo.maxSets << "for" << outputCount << "outputs";
+    qCDebug(KWIN_VULKAN) << "Created descriptor pool with maxSets=" << poolInfo.maxSets << "for" << outputCount << "outputs";
     return true;
 }
 

@@ -319,10 +319,8 @@ bool VulkanSwapchain::createSwapchain(const QSize &size)
     m_images.resize(imageCount);
     vkGetSwapchainImagesKHR(device, m_swapchain, &imageCount, m_images.data());
 
-    qWarning() << "VULKAN: Created swapchain with" << imageCount << "images,"
-               << extent.width << "x" << extent.height
-               << "requested=" << size.width() << "x" << size.height()
-               << "format:" << surfaceFormat.format;
+    qCDebug(KWIN_VULKAN) << "Created swapchain with" << imageCount << "images,"
+                         << extent.width << "x" << extent.height << "format:" << surfaceFormat.format;
     return true;
 }
 
@@ -456,15 +454,7 @@ bool VulkanSwapchain::present()
     presentInfo.pSwapchains = &m_swapchain;
     presentInfo.pImageIndices = &m_currentImageIndex;
 
-    static int presentLogCount = 0;
-    if (presentLogCount < 5) {
-        qWarning() << "VULKAN: Presenting image" << m_currentImageIndex << "frame" << m_currentFrame;
-        presentLogCount++;
-    }
     VkResult result = vkQueuePresentKHR(m_context->backend()->graphicsQueue(), &presentInfo);
-    if (presentLogCount <= 5) {
-        qWarning() << "VULKAN: vkQueuePresentKHR result:" << result << "(" << getVulkanResultString(result) << ")";
-    }
 
     if (result == VK_ERROR_OUT_OF_DATE_KHR) {
         qCDebug(KWIN_VULKAN) << "Swapchain out of date after present, needs recreation";

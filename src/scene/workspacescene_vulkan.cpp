@@ -216,13 +216,6 @@ SceneVulkanDecorationRenderer::~SceneVulkanDecorationRenderer()
 
 void SceneVulkanDecorationRenderer::render(const QRegion &region)
 {
-    static int renderLogCount = 0;
-    if (renderLogCount < 5) {
-        qWarning() << "SceneVulkanDecorationRenderer::render() called, region=" << region.boundingRect()
-                   << "imagesDirty=" << areImageSizesDirty();
-        renderLogCount++;
-    }
-
     if (areImageSizesDirty()) {
         resizeTexture();
         resetImageSizesDirty();
@@ -260,14 +253,6 @@ void SceneVulkanDecorationRenderer::renderPart(const QRectF &rect, const QRectF 
 {
     if (!rect.isValid() || !m_texture) {
         return;
-    }
-
-    static int partLogCount = 0;
-    if (partLogCount < 10) {
-        qWarning() << "SceneVulkanDecorationRenderer::renderPart()"
-                   << "rect=" << rect << "partRect=" << partRect
-                   << "offset=" << textureOffset << "rotated=" << rotated;
-        partLogCount++;
     }
 
     const QMargins padding = texturePadForPart(rect, partRect);

@@ -140,17 +140,6 @@ void ItemRendererVulkan::beginFrame(const RenderTarget &renderTarget, const Rend
     m_currentProjection = viewport.projectionMatrix();
     const QSize size = viewport.renderRect().size().toSize();
 
-    static int projLogCount = 0;
-    if (projLogCount < 3) {
-        qWarning() << "VULKAN: Projection matrix:" << m_currentProjection;
-        qWarning() << "VULKAN: Viewport renderRect=" << viewport.renderRect() << "scale=" << viewport.scale();
-        qWarning() << "VULKAN: Framebuffer=" << m_currentFramebuffer
-                   << "size=" << (m_currentFramebuffer ? m_currentFramebuffer->size() : QSize())
-                   << "syncInfo.imageAvailable=" << m_currentSyncInfo.imageAvailableSemaphore
-                   << "syncInfo.renderFinished=" << m_currentSyncInfo.renderFinishedSemaphore;
-        projLogCount++;
-    }
-
     // Begin render pass if we have a framebuffer
     if (m_currentFramebuffer) {
         // Set up clear values
@@ -456,14 +445,9 @@ void ItemRendererVulkan::createRenderNode(Item *item, RenderContext *context)
     if (auto shadowItem = qobject_cast<ShadowItem *>(item)) {
         // ShadowItem - use VulkanShadowTextureProvider
         auto *textureProvider = static_cast<VulkanShadowTextureProvider *>(shadowItem->textureProvider());
-        qWarning() << "VULKAN: ShadowItem geometry=" << geometry.count() << "vertices"
-                   << "textureProvider=" << textureProvider
-                   << "texture=" << (textureProvider ? textureProvider->texture() : nullptr);
         if (!geometry.isEmpty()) {
             if (textureProvider && textureProvider->texture()) {
                 VulkanTexture *texture = textureProvider->texture();
-                qWarning() << "VULKAN: ShadowItem texture size=" << texture->size()
-                           << "valid=" << texture->isValid();
 
                 // Post-process texture coordinates (convert pixel coords to normalized)
                 geometry.postProcessTextureCoordinates(texture->matrix(VulkanCoordinateType::Unnormalized));
@@ -492,25 +476,14 @@ void ItemRendererVulkan::createRenderNode(Item *item, RenderContext *context)
                 }
 
                 context->renderNodes.append(node);
-                // Log shadow transform for debugging
-                float tx = node.transformMatrix.column(3).x();
-                float ty = node.transformMatrix.column(3).y();
-                qWarning() << "VULKAN: ShadowItem ADDED render node with" << node.vertexCount << "vertices"
-                           << "transform=(" << tx << "," << ty << ")"
-                           << "texSize=" << texture->size();
             }
         }
     } else if (auto decorationItem = qobject_cast<DecorationItem *>(item)) {
         // DecorationItem - use SceneVulkanDecorationRenderer
         auto *renderer = static_cast<const SceneVulkanDecorationRenderer *>(decorationItem->renderer());
-        qWarning() << "VULKAN: DecorationItem geometry=" << geometry.count() << "vertices"
-                   << "renderer=" << renderer
-                   << "texture=" << (renderer ? renderer->texture() : nullptr);
         if (!geometry.isEmpty()) {
             if (renderer && renderer->texture()) {
                 VulkanTexture *texture = renderer->texture();
-                qWarning() << "VULKAN: DecorationItem texture size=" << texture->size()
-                           << "valid=" << texture->isValid();
 
                 // Post-process texture coordinates (convert pixel coords to normalized)
                 geometry.postProcessTextureCoordinates(texture->matrix(VulkanCoordinateType::Unnormalized));
@@ -539,7 +512,6 @@ void ItemRendererVulkan::createRenderNode(Item *item, RenderContext *context)
                 }
 
                 context->renderNodes.append(node);
-                qWarning() << "VULKAN: DecorationItem ADDED render node with" << node.vertexCount << "vertices";
             }
         }
     } else if (auto surfaceItem = qobject_cast<SurfaceItem *>(item)) {
@@ -554,28 +526,8 @@ void ItemRendererVulkan::createRenderNode(Item *item, RenderContext *context)
                 VulkanTexture *texture = surfaceContents.firstPlane();
 
                 if (!texture) {
-                    qWarning() << "VULKAN: SurfaceItem SKIPPED - no valid texture planes";
+                    qCWarning(KWIN_VULKAN) << "SurfaceItem skipped: no valid texture planes";
                     return;
-                }
-
-                // Log geometry details - compare texture size vs bufferSize AND geometry dimensions
-                // Find geometry bounding box to show actual rendered size
-                float minX = 999999, maxX = -999999, minY = 999999, maxY = -999999;
-                for (int i = 0; i < geometry.count(); ++i) {
-                    minX = std::min(minX, geometry[i].position.x());
-                    maxX = std::max(maxX, geometry[i].position.x());
-                    minY = std::min(minY, geometry[i].position.y());
-                    maxY = std::max(maxY, geometry[i].position.y());
-                }
-                float geomWidth = maxX - minX;
-                float geomHeight = maxY - minY;
-
-                // Always log for panels (small surfaces)
-                if (texture->size().height() < 200 || texture->size() != surfaceItem->bufferSize()) {
-                    qWarning() << "VULKAN: SurfaceItem texSize=" << texture->size()
-                               << "bufferSize=" << surfaceItem->bufferSize()
-                               << "geomBounds=(" << geomWidth << "x" << geomHeight << ")"
-                               << "itemPos=" << item->position();
                 }
 
                 // Post-process texture coordinates (convert pixel coords to normalized)
@@ -631,19 +583,14 @@ void ItemRendererVulkan::createRenderNode(Item *item, RenderContext *context)
                 }
 
                 context->renderNodes.append(node);
-                qWarning() << "VULKAN: SurfaceItem ADDED render node with" << node.vertexCount << "vertices, opacity=" << node.opacity;
             } else {
-                qWarning() << "VULKAN: SurfaceItem SKIPPED - invalid texture";
+                qCWarning(KWIN_VULKAN) << "SurfaceItem skipped: invalid texture";
             }
         }
     } else if (auto imageItem = qobject_cast<ImageItemVulkan *>(item)) {
         // ImageItemVulkan - use the texture from preprocess()
-        qWarning() << "VULKAN: ImageItemVulkan geometry=" << geometry.count() << "vertices"
-                   << "texture=" << imageItem->texture();
         if (!geometry.isEmpty() && imageItem->texture()) {
             VulkanTexture *texture = imageItem->texture();
-            qWarning() << "VULKAN: ImageItemVulkan texture size=" << texture->size()
-                       << "valid=" << texture->isValid();
 
             // Post-process texture coordinates (convert pixel coords to normalized)
             geometry.postProcessTextureCoordinates(texture->matrix(VulkanCoordinateType::Unnormalized));
@@ -672,18 +619,14 @@ void ItemRendererVulkan::createRenderNode(Item *item, RenderContext *context)
             }
 
             context->renderNodes.append(node);
-            qWarning() << "VULKAN: ImageItemVulkan ADDED render node with" << node.vertexCount << "vertices";
         }
     } else if (auto borderItem = qobject_cast<OutlinedBorderItem *>(item)) {
         // OutlinedBorderItem - uses Border trait, no texture needed
-        qWarning() << "VULKAN: OutlinedBorderItem geometry=" << geometry.count() << "vertices";
         if (!geometry.isEmpty()) {
             const BorderOutline outline = borderItem->outline();
             const int thickness = std::round(outline.thickness() * scale);
             const QRectF outerRect = snapToPixelGridF(scaledRect(borderItem->rect(), scale));
             const QRectF innerRect = outerRect.adjusted(thickness, thickness, -thickness, -thickness);
-            qWarning() << "VULKAN: OutlinedBorderItem outerRect=" << outerRect << "innerRect=" << innerRect
-                       << "color=" << outline.color();
 
             RenderNode node;
             node.traits = VulkanShaderTrait::Border;
@@ -709,16 +652,13 @@ void ItemRendererVulkan::createRenderNode(Item *item, RenderContext *context)
             }
 
             context->renderNodes.append(node);
-            qWarning() << "VULKAN: OutlinedBorderItem ADDED render node with" << node.vertexCount << "vertices";
         }
     } else if (qobject_cast<WindowItem *>(item)) {
         // WindowItem (including WindowItemX11, WindowItemInternal) is a container item
         // with no geometry of its own - it just holds child items (SurfaceItem, DecorationItem, ShadowItem)
         // This is expected behavior, no warning needed
     } else {
-        // Unhandled item type
-        qWarning() << "VULKAN: UNHANDLED item type:" << item->metaObject()->className()
-                   << "geometry=" << geometry.count() << "vertices";
+        qCWarning(KWIN_VULKAN) << "Unhandled item type:" << item->metaObject()->className();
     }
 
     // Process children with z >= 0 (in front of this item)
@@ -847,24 +787,6 @@ void ItemRendererVulkan::renderNodes(const RenderContext &context, VkCommandBuff
         VulkanPushConstants pc{};
         const QMatrix4x4 mvp = context.projectionMatrix * node.transformMatrix;
 
-        // Debug: log what we're drawing and where
-        static int drawDebugCount = 0;
-        if (drawDebugCount < 10 && !node.textures.isEmpty()) {
-            QSize texSize = node.textures[0]->size();
-            // Extract translation from transform matrix (column 3, rows 0-1)
-            float tx = node.transformMatrix.column(3).x();
-            float ty = node.transformMatrix.column(3).y();
-            qWarning() << "VULKAN: RENDER NODE - texSize=" << texSize
-                       << "firstVert=" << node.firstVertex << "vertCount=" << node.vertexCount
-                       << "translate=(" << tx << "," << ty << ")";
-            // Log first vertex position
-            if (!node.geometry.isEmpty()) {
-                qWarning() << "  First vertex pos=(" << node.geometry[0].position.x()
-                           << "," << node.geometry[0].position.y() << ")";
-            }
-            drawDebugCount++;
-        }
-
         memcpy(pc.mvp, mvp.data(), sizeof(pc.mvp));
         // Texture matrix is identity - we already applied it via postProcessTextureCoordinates()
         // on the CPU side before uploading the geometry, so the shader doesn't need to transform again
@@ -926,20 +848,9 @@ void ItemRendererVulkan::renderNodes(const RenderContext &context, VkCommandBuff
                 imageInfos[slot].sampler = tex->sampler();
                 imageInfos[slot].imageView = tex->imageView();
                 imageInfos[slot].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-                // Log texture details for debugging
-                qWarning() << "VULKAN: Binding texture slot" << slot
-                           << "size=" << tex->size()
-                           << "layout=" << tex->currentLayout()
-                           << "imageView=" << tex->imageView();
                 slot++;
-            } else if (tex) {
-                qWarning() << "VULKAN: SKIPPING invalid texture slot" << slot
-                           << "valid=" << tex->isValid()
-                           << "imageView=" << tex->imageView();
             }
         }
-
-        qWarning() << "VULKAN: Bound" << slot << "textures from node, filling rest with default";
 
         // Fill remaining slots with default texture
         for (; slot < 4; slot++) {
@@ -995,13 +906,6 @@ void ItemRendererVulkan::renderNodes(const RenderContext &context, VkCommandBuff
             }
 
             vkCmdDraw(cmd, node.vertexCount, 1, node.firstVertex, 0);
-
-            // Log draw calls for debugging
-            if (!node.textures.isEmpty()) {
-                QSize texSize = node.textures[0]->size();
-                qWarning() << "VULKAN: DRAW" << node.vertexCount << "verts at offset" << node.firstVertex
-                           << "texSize=" << texSize << "opacity=" << node.opacity;
-            }
         }
     }
 
@@ -1021,13 +925,7 @@ void ItemRendererVulkan::renderItem(const RenderTarget &renderTarget, const Rend
     VkCommandBuffer cmd = m_currentCommandBuffer;
     const auto vulkanRenderTarget = renderTarget.vulkanTarget();
     if (vulkanRenderTarget && vulkanRenderTarget->commandBuffer() != VK_NULL_HANDLE) {
-        qCDebug(KWIN_VULKAN) << "VULKAN: Using renderTarget command buffer:" << vulkanRenderTarget->commandBuffer()
-                             << "instead of m_currentCommandBuffer:" << m_currentCommandBuffer;
         cmd = vulkanRenderTarget->commandBuffer();
-    } else {
-        qCDebug(KWIN_VULKAN) << "VULKAN: Using m_currentCommandBuffer:" << m_currentCommandBuffer
-                             << "vulkanTarget=" << vulkanRenderTarget
-                             << "cmdBuffer=" << (vulkanRenderTarget ? vulkanRenderTarget->commandBuffer() : VK_NULL_HANDLE);
     }
 
     if (cmd == VK_NULL_HANDLE) {
