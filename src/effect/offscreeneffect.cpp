@@ -25,6 +25,7 @@
 #include "scene/itemrenderer_vulkan.h"
 #include "scene/windowitem.h"
 #include "scene/workspacescene_vulkan.h"
+#include "utils/common.h"
 
 namespace KWin
 {
@@ -248,7 +249,7 @@ void GLOffscreenData::maybeRender(EffectWindow *window)
 void VulkanOffscreenData::maybeRender(EffectWindow *window)
 {
     if (!m_vulkanContext) {
-        qWarning() << "VulkanOffscreenData::maybeRender: No context";
+        qCWarning(KWIN_VULKAN) << "VulkanOffscreenData::maybeRender: No context";
         return;
     }
 
@@ -282,7 +283,7 @@ void VulkanOffscreenData::maybeRender(EffectWindow *window)
         // Use single-time commands for offscreen rendering
         VkCommandBuffer cmd = m_vulkanContext->beginSingleTimeCommands();
         if (cmd == VK_NULL_HANDLE) {
-            qWarning() << "VulkanOffscreenData::maybeRender: Failed to begin single-time commands";
+            qCWarning(KWIN_VULKAN) << "VulkanOffscreenData::maybeRender: Failed to begin single-time commands";
             return;
         }
 
@@ -398,26 +399,26 @@ void VulkanOffscreenData::paint(const RenderTarget &renderTarget, const RenderVi
     // Get the command buffer from the scene's renderer
     auto *scene = dynamic_cast<WorkspaceSceneVulkan *>(Compositor::self()->scene());
     if (!scene) {
-        qWarning() << "VulkanOffscreenData::paint: No scene";
+        qCWarning(KWIN_VULKAN) << "VulkanOffscreenData::paint: No scene";
         return;
     }
 
     auto *renderer = static_cast<ItemRendererVulkan *>(scene->renderer());
     VkCommandBuffer cmd = renderer->currentCommandBuffer();
     if (cmd == VK_NULL_HANDLE) {
-        qWarning() << "VulkanOffscreenData::paint: No active command buffer";
+        qCWarning(KWIN_VULKAN) << "VulkanOffscreenData::paint: No active command buffer";
         return;
     }
 
     if (!m_vulkanFbo || !m_vulkanContext) {
-        qWarning() << "VulkanOffscreenData::paint: No framebuffer or context";
+        qCWarning(KWIN_VULKAN) << "VulkanOffscreenData::paint: No framebuffer or context";
         return;
     }
 
     // Get the texture from the framebuffer - this is the texture we rendered to in maybeRender()
     VulkanTexture *renderTexture = m_vulkanFbo->colorTexture();
     if (!renderTexture || !renderTexture->isValid()) {
-        qWarning() << "VulkanOffscreenData::paint: No valid render texture";
+        qCWarning(KWIN_VULKAN) << "VulkanOffscreenData::paint: No valid render texture";
         return;
     }
 
@@ -437,7 +438,7 @@ void VulkanOffscreenData::paint(const RenderTarget &renderTarget, const RenderVi
     // Use traits similar to the GL version's default shader
     VulkanPipeline *pipeline = m_pipeline ? m_pipeline : pipelineManager->pipeline(VulkanShaderTrait::MapTexture | VulkanShaderTrait::Modulate | VulkanShaderTrait::AdjustSaturation | VulkanShaderTrait::TransformColorspace);
     if (!pipeline || !pipeline->isValid()) {
-        qWarning() << "VulkanOffscreenData::paint: Failed to get valid pipeline";
+        qCWarning(KWIN_VULKAN) << "VulkanOffscreenData::paint: Failed to get valid pipeline";
         return;
     }
 
@@ -468,7 +469,7 @@ void VulkanOffscreenData::paint(const RenderTarget &renderTarget, const RenderVi
     if (!m_vertexBuffer || m_vertexBuffer->size() < bufferSize) {
         m_vertexBuffer = VulkanBuffer::createStreamingBuffer(m_vulkanContext, bufferSize);
         if (!m_vertexBuffer || !m_vertexBuffer->isValid()) {
-            qWarning() << "VulkanOffscreenData::paint: Failed to create vertex buffer";
+            qCWarning(KWIN_VULKAN) << "VulkanOffscreenData::paint: Failed to create vertex buffer";
             return;
         }
     }
@@ -476,7 +477,7 @@ void VulkanOffscreenData::paint(const RenderTarget &renderTarget, const RenderVi
     // Map and fill vertex data from RenderGeometry
     auto mapped = m_vertexBuffer->map<VulkanVertex2D>(vertexCount);
     if (!mapped) {
-        qWarning() << "VulkanOffscreenData::paint: Failed to map vertex buffer";
+        qCWarning(KWIN_VULKAN) << "VulkanOffscreenData::paint: Failed to map vertex buffer";
         return;
     }
 
@@ -498,7 +499,7 @@ void VulkanOffscreenData::paint(const RenderTarget &renderTarget, const RenderVi
     // Allocate descriptor set
     VkDescriptorSet descriptorSet = m_vulkanContext->allocateDescriptorSet(pipeline->descriptorSetLayout());
     if (descriptorSet == VK_NULL_HANDLE) {
-        qWarning() << "VulkanOffscreenData::paint: Failed to allocate descriptor set";
+        qCWarning(KWIN_VULKAN) << "VulkanOffscreenData::paint: Failed to allocate descriptor set";
         return;
     }
 
@@ -518,7 +519,7 @@ void VulkanOffscreenData::paint(const RenderTarget &renderTarget, const RenderVi
     if (!m_uniformBuffer || m_uniformBuffer->size() < uniformSize) {
         m_uniformBuffer = VulkanBuffer::createUniformBuffer(m_vulkanContext, uniformSize);
         if (!m_uniformBuffer || !m_uniformBuffer->isValid()) {
-            qWarning() << "VulkanOffscreenData::paint: Failed to create uniform buffer";
+            qCWarning(KWIN_VULKAN) << "VulkanOffscreenData::paint: Failed to create uniform buffer";
             return;
         }
     }

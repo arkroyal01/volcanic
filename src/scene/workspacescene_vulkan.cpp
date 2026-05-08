@@ -222,7 +222,7 @@ void SceneVulkanDecorationRenderer::render(const QRegion &region)
     }
 
     if (!m_texture) {
-        qWarning() << "SceneVulkanDecorationRenderer::render() - no texture!";
+        qCWarning(KWIN_VULKAN) << "SceneVulkanDecorationRenderer::render() - no texture!";
         return;
     }
 
