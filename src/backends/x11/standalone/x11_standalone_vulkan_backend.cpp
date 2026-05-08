@@ -285,6 +285,8 @@ bool X11StandaloneVulkanBackend::initSwapchain()
 
     qCDebug(KWIN_X11STANDALONE) << "Successfully created Vulkan swapchain";
 
+    m_colorFormat = m_swapchain->format();
+
     // Connect the swapchain's render pass to the pipeline manager
     m_context->pipelineManager()->setRenderPass(m_swapchain->renderPass()->renderPass());
 

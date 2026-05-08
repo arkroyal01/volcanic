@@ -107,6 +107,17 @@ public:
     void copyPixels(const QRegion &region, const QSize &screenSize);
 
     /**
+     * @brief Get the colour-attachment format chosen at swapchain init time.
+     *
+     * All offscreen render passes that composite onto the swapchain must use this
+     * format to remain pipeline-compatible with the swapchain render pass.
+     */
+    VkFormat colorFormat() const
+    {
+        return m_colorFormat;
+    }
+
+    /**
      * @brief Check if external fence fd export is supported (VK_KHR_external_fence_fd)
      */
     bool supportsExternalFenceFd() const
@@ -158,6 +169,7 @@ protected:
     VkDevice m_device = VK_NULL_HANDLE;
     VkQueue m_graphicsQueue = VK_NULL_HANDLE;
     uint32_t m_graphicsQueueFamily = 0;
+    VkFormat m_colorFormat = VK_FORMAT_B8G8R8A8_SRGB; // set by concrete backend after swapchain init
 
 private:
     /**

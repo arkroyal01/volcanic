@@ -184,6 +184,7 @@ target_sources(kwin PRIVATE
     scene/workspacescene_opengl.cpp
     $<$<BOOL:${HAVE_VULKAN}>:scene/workspacescene_vulkan.cpp>
     $<$<BOOL:${HAVE_VULKAN}>:scene/itemrenderer_vulkan.cpp>
+    $<$<BOOL:${HAVE_VULKAN}>:scene/cursordelegate_vulkan.cpp>
     screenedge.cpp
     scripting/dbuscall.cpp
     scripting/desktopbackgrounditem.cpp

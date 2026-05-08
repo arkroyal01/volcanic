@@ -667,9 +667,13 @@ PlatformCursorImage Application::cursorImage() const
     switch (effects->compositingType()) {
     case OpenGLCompositing:
         return grabCursorOpenGL();
+    case VulkanCompositing:
+        // X11 uses hardware cursors; client-drawn cursor capture is not yet
+        // implemented for the Vulkan backend.
+        return PlatformCursorImage();
     case NoCompositing:
     default:
-        Q_UNREACHABLE();
+        return PlatformCursorImage();
     }
 }
 
