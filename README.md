@@ -1,8 +1,19 @@
-# sonic-win
+# Volcanic
 
-## KWin/X11 with ports from KWin/Wayland, bug fixes, and other improvements
+## A standalone Vulkan X11 compositor
 
-sonic-win is an X11 window manager and a compositing manager. Its primary usage is in conjunction with a Desktop Shell (e.g. [sonic-desktop](https://github.com/Sonic-DE/sonic-desktop)). sonic-win is designed to stay out of the way; users should not notice that they use a window manager at all. Nevertheless sonic-win provides a steep learning curve for advanced features, which are available, if they do not conflict with the primary mission. sonic-win does not have a dedicated targeted user group, but follows the targeted user group of the Desktop Shell using sonic-win as it's window manager.
+Volcanic is an X11 window manager and compositing manager with a **Vulkan-native
+compositing path**. It is a hard-fork of [sonic-win](https://github.com/Sonic-DE/sonic-win)'s
+`volcanic` branch (itself descended from KWin/X11), diverging permanently from the
+Sonic-DE / KWin lineage. Its goal is a *standalone* compositor: keep KWin's mature
+X11 window-management substrate, but progressively shed the KDE/Plasma dependency
+surface and center the Vulkan scene. Volcanic is designed to stay out of the way
+and run under a lightweight shell (e.g. LXDE).
+
+> The binary is still installed as `kwin_x11` and reports `_NET_WM_NAME` = `KWin`
+> for downstream compatibility; an identity rename is a deliberate later step.
+
+This fork preserves the upstream authorship/history (LGPL-2.0); see `AUTHORS`.
 
 ## Why stay with X11?
 
