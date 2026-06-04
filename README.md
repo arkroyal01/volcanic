@@ -40,7 +40,7 @@ All variables announce themselves with a one-shot log line at startup so a missi
 | `KWIN_VULKAN_PARTIAL_REPAINT` | `1` | Damage-driven partial-repaint with manual swapchain buffer-age tracking. Set to `0` to force full repaints. |
 | `KWIN_VULKAN_VMA_STATS` | `0` | Periodic VMA (memory allocator) statistics dump for leak diagnosis. Frame-1 then every 300 frames. |
 
-### Present-timing latency work (Phases 0–5)
+### Present-timing latency work
 
 The following set was added incrementally to leverage `VK_EXT_present_timing` + `VK_KHR_present_id2` + `VK_KHR_present_wait2` (available on X11 via [Mesa MR !39551](https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/39551)).
 
@@ -79,19 +79,18 @@ VK_EXT_present_timing surface check: result=0 presentTimingSupported=true presen
 
 ### Known limitations
 
-- The Overview effect exhibits 100–200 ms main-thread dispatch stalls. These are upstream of the scheduler and not addressable by any of the knobs above — investigation is backlogged.
 - `VK_EXT_present_timing` stages on Mesa MR !39551 are reported in `VK_TIME_DOMAIN_PRESENT_STAGE_LOCAL_EXT` rather than raw `CLOCK_MONOTONIC`. Stage `FIRST_PIXEL_OUT` happens to be CLOCK_MONOTONIC ns; stage `QUEUE_OPERATIONS_END` is in a separate GPU-side clock — they are not directly comparable.
 
-## sonic-win is not
+## Volcanic is not
 
 * a standalone window manager (c.f. openbox, i3) and does not provide any functionality belonging to a Desktop Shell.
 * a replacement for window managers designed for use with a specific Desktop Shell (e.g. GNOME Shell)
 * a minimalistic window manager
 * designed for use without compositing or for X11 network transparency, though both are possible.
 
-## Contributing to sonic-win
+## Contributing to Volcanic
 
-We appreciate your interest in contributing! Please refer to the [CONTRIBUTING document](CONTRIBUTING.md) for everything you need to get started. To report a bug, please use the sonic-win bug tracker at [Issues · Sonic-DE/sonic-win](https://github.com/Sonic-DE/sonic-win/issues).
+We appreciate your interest in contributing! Please refer to the [CONTRIBUTING document](CONTRIBUTING.md) for everything you need to get started. To report a bug, please use the Volcanic bug tracker at [Issues · arkroyal01/volcanic](https://github.com/arkroyal01/volcanic/issues).
 
 ## Getting in contact
 
