@@ -59,9 +59,6 @@ class VulkanTexture;
  * Esc. No window thumbnails yet (phase 2) and no plugin registration
  * yet (phase 1b — caller currently can only construct this class
  * directly, not load it as a kwin effect).
- *
- * See the design plan for the
- * multi-phase plan.
  */
 class OverviewEffectV2 : public Effect
 {

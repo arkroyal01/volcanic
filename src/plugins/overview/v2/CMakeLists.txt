@@ -8,7 +8,7 @@
 # name + plugin ID). Sources reference the parent dir for the
 # OverviewEffectV2 implementation — keeping the class file alongside
 # its V1 sibling makes cross-referencing easier during the multi-phase
-# rewrite (see the design plan).
+# rewrite.
 set(overviewv2_SOURCES
     main.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../overvieweffectv2.cpp
